@@ -1,0 +1,175 @@
+﻿@page "/contractors"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>Contractors</h3>
+    </div>
+    <div class="col-md-6">
+        <div class="float-right">
+            <button class="btn btn-primary mr-2"
+                    @onclick="Synchronize">
+                Synchronize
+            </button>
+            @if (contractors?.Count() > 0)
+            {
+                <div class="form-group d-inline-block">
+                    <select class="form-control" @onchange="SetSize">
+                        @foreach (var size in sizes)
+                        {
+                            if (this.size == size)
+                            {
+                                <option selected>@size</option>
+                            }
+                            else
+                            {
+                                <option>@size</option>
+                            }
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+@if (contractors?.Count() > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                @*<th scope="col">ID</th>*@
+                <th scope="col">Name</th>
+                <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in contractors)
+            {
+                <tr>
+                    @*<th scope="row">@item.ID</th>*@
+                    <td>@item.Name</td>
+                    <td>
+                        <a href="@nameof(ContractorPrices)/@item.ID">
+                            <span class="oi oi-dollar text-success lead m-1 pointer"></span>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="btn-toolbar float-right" role="toolbar">
+        <div class="btn-group mr-2" role="group">
+            <button type="button"
+                    class="btn btn-sm btn-secondary"
+                    @onclick="PreviousPage">
+                <span class="oi oi-caret-left small"></span>
+            </button>
+        </div>
+        <div class="btn-group mr-2" role="group">
+            @foreach (var page in Enumerable.Range(1, totalPages))
+            {
+                if (this.page == page)
+                {
+                    <button type="button"
+                            class="btn btn-sm btn-secondary">
+                        @(page)
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            @onclick="@(() => SetPage(page))">
+                        @(page)
+                    </button>
+                }
+            }
+        </div>
+        <div class="btn-group" role="group">
+            <button type="button"
+                    class="btn btn-sm btn-secondary"
+                    @onclick="NextPage">
+                <span class="oi oi-caret-right small"></span>
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-warning" role="alert">
+        At the moment there is no data.
+    </div>
+}
+
+@code {
+    #region Constants
+    private readonly int[] sizes = new[] { 5, 10, 25 };
+    private const int indent = 2;
+    #endregion
+
+    #region Fields
+    private int size;
+    private int page = 1;
+    private IEnumerable<Contractor> contractors = Enumerable.Empty<Contractor>();
+    private int totalPages = 0;
+    #endregion
+
+    public Contractors()
+    {
+        size = sizes[0];
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshItems();
+        await base.OnInitializedAsync();
+    }
+
+    #region Handlers
+    private async Task<double> Count()
+    {
+        return await Http.GetFromJsonAsync<double>($"api/{nameof(Contractors)}/{nameof(Count)}");
+    }
+    private async Task SetSize(ChangeEventArgs eventArgs)
+    {
+        if (int.TryParse(eventArgs.Value?.ToString(), out this.size))
+        {
+            await RefreshItems();
+        }
+    }
+    private async Task SetPage(int page)
+    {
+        this.page = page;
+        await RefreshItems();
+    }
+    private async Task RefreshItems()
+    {
+        contractors = await Http.GetFromJsonAsync<IEnumerable<Contractor>>($"api/{nameof(Contractors)}/{size}/{page}");
+        totalPages = (int)Math.Ceiling(await Count() / size);
+    }
+    private async Task PreviousPage()
+    {
+        if (page <= 1)
+        {
+            return;
+        }
+
+        await SetPage(page - 1);
+    }
+    private async Task NextPage()
+    {
+        if (page >= totalPages)
+        {
+            return;
+        }
+
+        await SetPage(page + 1);
+    }
+    private async Task Synchronize()
+    {
+        await Http.PostAsync($"api/{nameof(Contractors)}", null);
+        await RefreshItems();
+    }
+    #endregion
+}

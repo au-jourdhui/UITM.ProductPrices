@@ -1,0 +1,124 @@
+﻿@page "/Products/MergeProduct"
+@page "/Products/MergeProduct/{ProductID:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="container-fluid">
+    <div class="row mb-2">
+        <button type="button"
+                class="btn btn-sm btn-light mr-2"
+                @onclick="GoBack">
+            <span class="oi oi-caret-left small"></span>
+        </button>
+        @if (ProductID.HasValue)
+        {
+            <h4 class="mb-0">Update Product</h4>
+        }
+        else
+        {
+            <h4 class="mb-0">Create Product</h4>
+        }
+    </div>
+    <div class="form-row mb-2">
+        <div class="col">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Name..."
+                   @bind-value="product.Name">
+        </div>
+        <div class="col">
+            <input type="number"
+                   step="0.1"
+                   class="form-control"
+                   placeholder="Name..."
+                   @bind-value="product.Price">
+        </div>
+    </div>
+    <div class="form-row mb-2">
+        <div class="col">
+            @if (productTypes?.Count() > 0)
+            {
+                <select class="form-control" @onchange="SetProductType">
+                    @if (!IsSelected)
+                    {
+                        <option selected>Select Product Type</option>
+                    }
+                    @foreach (var productType in productTypes)
+                    {
+                        if (product?.ProductType?.ID == productType.ID)
+                        {
+                            <option value="@productType.ID" selected>@productType.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@productType.ID">@productType.Name</option>
+                        }
+                    }
+                </select>
+            }
+            else
+            {
+                <input type="text" class="form-control" disabled placeholder="Product types are not set yet..." />
+            }
+            @if (IsSelectedProductType == false)
+            {
+                <small class="text-danger">Product Type should be selected!</small>
+            }
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary float-right" @onclick="Save">Save</button>
+</div>
+
+@code {
+    [Parameter]
+    public int? ProductID { get; set; }
+
+    private bool IsSelected => ProductID.HasValue || product.ProductType != null;
+    private bool? IsSelectedProductType = null;
+
+    private IEnumerable<ProductType> productTypes = new List<ProductType>();
+    private Product product = new Product();
+
+    protected override async Task OnInitializedAsync()
+    {
+        productTypes = await Http.GetFromJsonAsync<IEnumerable<ProductType>>($"api/{nameof(ProductTypes)}");
+        if (ProductID.HasValue)
+        {
+            product = await Http.GetFromJsonAsync<Product>($"api/{nameof(Products)}/{ProductID.Value}");
+        }
+        await base.OnInitializedAsync();
+    }
+
+    private async Task Save()
+    {
+        if (product.ProductType == null)
+        {
+            IsSelectedProductType = false;
+            return;
+        }
+
+        if (ProductID.HasValue)
+        {
+            await Http.PutAsJsonAsync($"api/{nameof(Products)}/{ProductID.Value}", product);
+        }
+        else
+        {
+            await Http.PostAsJsonAsync<Product>($"api/{nameof(Products)}", product);
+        }
+        GoBack();
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo($"{nameof(Products)}");
+    }
+
+    private void SetProductType(ChangeEventArgs eventArgs)
+    {
+        if (int.TryParse(eventArgs.Value.ToString(), out int id) && productTypes.FirstOrDefault(x => x.ID == id) is ProductType productType)
+        {
+            product.ProductType = productType;
+            IsSelectedProductType = true;
+        }
+    }
+}

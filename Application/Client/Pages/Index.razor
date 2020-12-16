@@ -1,0 +1,295 @@
+﻿@page "/"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="card p-2 shadow-sm">
+    <div class="accordion"
+         id="accordionSearch">
+        <div class="card">
+            <div class="card-header"
+                 id="single-search">
+                <h2 class="mb-0">
+                    <button class="btn btn-link btn-block text-left"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseSearch"
+                            aria-expanded="true"
+                            aria-controls="collapseSearch"
+                            @onclick="@(() => ChangeSearchType(SearchType.SingleSearch))">
+                        Single search
+                    </button>
+                </h2>
+            </div>
+
+            <div id="collapseSearch"
+                 class="collapse @(searchType == SearchType.SingleSearch ? showClass : string.Empty)"
+                 data-parent="#accordionSearch">
+                <div class="card-body">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Start typing..." @bind-value="SearchString">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header" id="search-by-parameters">
+                <h2 class="mb-0">
+                    <button class="btn btn-link btn-block text-left collapsed"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseSearchByParameters"
+                            aria-expanded="false"
+                            aria-controls="collapseSearchByParameters"
+                            @onclick="@(() => ChangeSearchType(SearchType.SearchByParameters))">
+                        Search by parameters
+                    </button>
+                </h2>
+            </div>
+            <div id="collapseSearchByParameters"
+                 class="collapse @(searchType == SearchType.SearchByParameters ? showClass : string.Empty)"
+                 data-parent="#accordionSearch">
+                <div class="card-body">
+                    <form>
+                        <div class="form-row">
+                            <div class="form-group col-md-2">
+                                <label for="productName">ID</label>
+                                <input type="text"
+                                       class="form-control"
+                                       @bind-value="ProductID">
+                            </div>
+                            <div class="form-group col-md-5">
+                                <label for="productName">Name</label>
+                                <input type="text" class="form-control" @bind-value="ProductName">
+                            </div>
+                            <div class="form-group col-md-5">
+                                <label for="productTypeName">Product Type</label>
+                                <select class="form-control"
+                                        @onchange="SetProductType">
+                                    <option>Without type</option>
+                                    @if (productTypes?.Count() > 0)
+                                    {
+                                        @foreach (var productType in productTypes)
+                                        {
+                                            <option value="@productType.ID">@productType.Name (@productType.Products?.Count)</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body float-right">
+        <button class="btn btn-sm btn-success"
+                @onclick="Search">
+            Search
+        </button>
+        <button class="btn btn-sm btn-secondary mr-2"
+                @onclick="Clear">
+            Clear
+        </button>
+    </div>
+</div>
+
+@if (products?.Count() > 0)
+{
+    <div class="form-group d-inline-block mt-2">
+        <select class="form-control" @onchange="SetSize">
+            @foreach (var size in sizes)
+            {
+                if (this.size == size)
+                {
+                    <option selected>@size</option>
+                }
+                else
+                {
+                    <option>@size</option>
+                }
+            }
+        </select>
+    </div>
+    <table class="table mt-2">
+        <thead>
+            <tr>
+                @*<th scope="col">ID</th>*@
+                <th scope="col">Name</th>
+                <th scope="col">Price</th>
+                <th scope="col">Product Type</th>
+                <th scope="col">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in products)
+            {
+                <tr>
+                    @*<th scope="row">@item.ID</th>*@
+                    <td>@item.Name</td>
+                    <td>$@item.Price.ToString("N2")</td>
+                    <td>@item.ProductType?.Name</td>
+                    <td>@item.Created</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="btn-toolbar float-right" role="toolbar">
+        <div class="btn-group mr-2" role="group">
+            <button type="button"
+                    class="btn btn-sm btn-secondary"
+                    @onclick="PreviousPage">
+                <span class="oi oi-caret-left small"></span>
+            </button>
+        </div>
+        <div class="btn-group mr-2" role="group">
+            @foreach (var page in Enumerable.Range(1, totalPages))
+            {
+                if (this.page == page)
+                {
+                    <button type="button"
+                            class="btn btn-sm btn-secondary">
+                        @(page)
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            @onclick="@(() => SetPage(page))">
+                        @(page)
+                    </button>
+                }
+            }
+        </div>
+        <div class="btn-group" role="group">
+            <button type="button"
+                    class="btn btn-sm btn-secondary"
+                    @onclick="NextPage">
+                <span class="oi oi-caret-right small"></span>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private record SearchResult(IEnumerable<Product> Products, int Total);
+    private enum SearchType
+    {
+        None,
+        SingleSearch,
+        SearchByParameters
+    };
+
+    #region Constants
+    private const string showClass = "show";
+    private readonly int[] sizes = new[] { 5, 10, 25 };
+    private const int indent = 2;
+    #endregion
+
+    #region Fields
+    private int size;
+    private int page = 1;
+    private int totalPages = 0;
+
+    private SearchType searchType = SearchType.SingleSearch;
+    private IEnumerable<ProductType> productTypes = Enumerable.Empty<ProductType>();
+    private IEnumerable<Product> products = Enumerable.Empty<Product>();
+    private string SearchString;
+    private int? ProductID;
+    private int? ProductTypeID;
+    private string ProductName;
+    #endregion
+
+    public Index()
+    {
+        size = sizes[0];
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshProductTypes();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task RefreshProductTypes()
+    {
+        productTypes = Enumerable.Empty<ProductType>();
+        productTypes = await Http.GetFromJsonAsync<IEnumerable<ProductType>>($"api/{nameof(ProductTypes)}");
+    }
+    private void ChangeSearchType(SearchType searchType)
+    {
+        this.searchType = this.searchType == searchType ? SearchType.None : searchType;
+    }
+    private void SetProductType(ChangeEventArgs eventArgs)
+    {
+        if (int.TryParse(eventArgs.Value.ToString(), out int id))
+        {
+            ProductTypeID = id;
+        }
+    }
+    private async Task Clear()
+    {
+        SearchString = null;
+        ProductID = null;
+        ProductTypeID = null;
+        ProductName = null;
+        products = Enumerable.Empty<Product>();
+        await RefreshProductTypes();
+
+    }
+    private async Task Search()
+    {
+        SearchResult result;
+        switch (searchType)
+        {
+            case SearchType.SingleSearch:
+                result = await Http.GetFromJsonAsync<SearchResult>($"api/{nameof(Products)}/{nameof(Search)}/{size}/{page}/{SearchString}");
+                break;
+            case SearchType.SearchByParameters:
+                result = await Http.GetFromJsonAsync<SearchResult>(
+                    $"api/{nameof(Products)}/{nameof(Search)}" +
+                    $"?{nameof(ProductID)}={ProductID}" +
+                    $"&{nameof(ProductTypeID)}={ProductTypeID}" +
+                    $"&{nameof(ProductName)}={ProductName}" +
+                    $"&{nameof(page)}={page}" +
+                    $"&{nameof(size)}={size}"
+                );
+                break;
+            default:
+                result = new SearchResult(Enumerable.Empty<Product>(), 0);
+                break;
+        }
+        products = result.Products;
+        totalPages = (int)Math.Ceiling((double)result.Total / size);
+    }
+    private async Task SetPage(int page)
+    {
+        this.page = page;
+        await Search();
+    }
+    private async Task PreviousPage()
+    {
+        if (page <= 1)
+        {
+            return;
+        }
+
+        await SetPage(page - 1);
+    }
+    private async Task NextPage()
+    {
+        if (page >= totalPages)
+        {
+            return;
+        }
+
+        await SetPage(page + 1);
+    }
+    private async Task SetSize(ChangeEventArgs eventArgs)
+    {
+        if (int.TryParse(eventArgs.Value?.ToString(), out this.size))
+        {
+            await Search();
+        }
+    }
+}

@@ -1,0 +1,65 @@
+﻿@page "/ProductTypes/MergeProductType"
+@page "/ProductTypes/MergeProductType/{ProductTypeID:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="container-fluid">
+    <div class="row mb-2">
+        <button type="button"
+                class="btn btn-sm btn-light mr-2"
+                @onclick="GoBack">
+            <span class="oi oi-caret-left small"></span>
+        </button>
+        @if (ProductTypeID.HasValue)
+        {
+            <h4 class="mb-0">Update Product Type</h4>
+        }
+        else
+        {
+            <h4 class="mb-0">Create Product Type</h4>
+        }
+    </div>
+    <div class="form-row mb-2">
+        <div class="col">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Product type..."
+                   @bind-value="productType.Name">
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary float-right" @onclick="Save">Save</button>
+</div>
+
+@code {
+    [Parameter]
+    public int? ProductTypeID { get; set; }
+
+    private ProductType productType = new ProductType();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ProductTypeID.HasValue)
+        {
+            productType = await Http.GetFromJsonAsync<ProductType>($"api/{nameof(ProductTypes)}/{ProductTypeID.Value}");
+        }
+        await base.OnInitializedAsync();
+    }
+
+    private async Task Save()
+    {
+        if (ProductTypeID.HasValue)
+        {
+            await Http.PutAsJsonAsync($"api/{nameof(ProductTypes)}/{ProductTypeID.Value}", productType);
+        }
+        else
+        {
+            await Http.PostAsJsonAsync<ProductType>($"api/{nameof(ProductTypes)}", productType);
+        }
+        GoBack();
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo($"{nameof(ProductTypes)}");
+    }
+}
