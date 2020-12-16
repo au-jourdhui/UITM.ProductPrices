@@ -11,9 +11,9 @@ namespace Application.Server.Controllers
     [ApiController]
     public class ContractorProductPricesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IApplicationDbContext _context;
 
-        public ContractorProductPricesController(ApplicationDbContext context)
+        public ContractorProductPricesController(IApplicationDbContext context)
         {
             _context = context;
         }

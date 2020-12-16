@@ -11,9 +11,9 @@ namespace Application.Server.Controllers
     [ApiController]
     public class ContractorsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IApplicationDbContext _context;
 
-        public ContractorsController(ApplicationDbContext context)
+        public ContractorsController(IApplicationDbContext context)
         {
             _context = context;
         }
