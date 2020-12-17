@@ -19,10 +19,11 @@ namespace Application.Tests
                 Name = $"{nameof(ProductType)} {x}"
             }).ToList();
         private readonly ProductTypesController controller;
+        private readonly Mock<IApplicationDbContext> context;
 
         public ProductTypesControllerTest()
         {
-            var context = new Mock<IApplicationDbContext>();
+            context = new Mock<IApplicationDbContext>();
             context.Setup(x => x.ProductTypes).Returns(() => productTypes.ToMockDbSet());
             controller = new ProductTypesController(context.Object);
         }
@@ -48,7 +49,7 @@ namespace Application.Tests
         [InlineData(6, 0)]
         [InlineData(8, 0)]
         [InlineData(1, 8)]
-        public async Task Get_Size_Page(int? size = null, int? page = null)
+        public async Task Get_Size_Page(int? size, int? page)
         {
             // Arrange
 
@@ -57,6 +58,20 @@ namespace Application.Tests
 
             // Assert
             Assert.NotEmpty(result);
+        }
+
+        [Theory]
+        [InlineData(6, 3)]
+        [InlineData(10, 2)]
+        public async Task Get_Size_Page_OutOfRange(int? size, int? page)
+        {
+            // Arrange
+
+            // Act
+            var result = (await controller.GetProductTypes(size, page)).Value;
+
+            // Assert
+            Assert.Empty(result);
         }
     }
 }
