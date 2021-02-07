@@ -57,6 +57,7 @@ namespace Application.Server.Controllers
         {
             var query = _context.Products.Include(x => x.ProductType)
                                          .Include(x => x.ContractorProductPrices)
+                                         .ThenInclude(x => x.Contractor)
                                          .AsQueryable();
 
             if (size.GetValueOrDefault() > 0)
@@ -78,8 +79,8 @@ namespace Application.Server.Controllers
                                   ProductType = x.ProductType,
 
                                   // ContractorProductPrice if exists, else use default price from Product
-                                  Price = x.ContractorProductPrices.Any(x => x.ID == id)
-                                          ? x.ContractorProductPrices.FirstOrDefault(x => x.ID == id).Price
+                                  Price = x.ContractorProductPrices.Any(x => x.Contractor.ID == id)
+                                          ? x.ContractorProductPrices.FirstOrDefault(x => x.Contractor.ID == id).Price
                                           : x.Price,
                               })
                               .ToListAsync();
