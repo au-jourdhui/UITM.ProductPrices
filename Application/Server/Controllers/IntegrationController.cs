@@ -1,13 +1,8 @@
 ﻿#nullable enable
 using System.Collections;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Application.Shared;
 using System.Linq;
-using Newtonsoft.Json;
-using System.Net.Http;
 
 namespace Application.Server.Controllers
 {
@@ -23,10 +18,34 @@ namespace Application.Server.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Get contractors for integration
+        /// </summary>
+        /// <returns>List of contractors</returns>
+        [HttpGet]
+        [Route("contractors")]
+        public IEnumerable GetContractors()
+        {
+            var contractors = _context.Contractors.Select(contractor => new
+            {
+                name = contractor.Name,
+                nip = contractor.ID.ToString().PadLeft(9, '0')
+            }).ToList();
+
+            return contractors;
+        }
+
+
+        /// <summary>
+        /// Get products without relation to specific contractor
+        /// </summary>
+        /// <returns>Prices per product by default</returns>
         [HttpGet]
         public ActionResult<IEnumerable> GetProducts()
         {
-            return GetProducts(null);
+            var products = GetProductsByNip(null);
+
+            return Ok(products);
         }
 
         /// <summary>
@@ -37,6 +56,11 @@ namespace Application.Server.Controllers
         [HttpGet("{nip}")]
         public ActionResult<IEnumerable> GetProducts(string? nip)
         {
+            if (_context.Contractors.ToList().All(x => x.ID.ToString().PadLeft(9, '0') != nip))
+            {
+                return NotFound();
+            }
+
             var products = GetProductsByNip(nip);
 
             return Ok(products);
@@ -50,22 +74,29 @@ namespace Application.Server.Controllers
                 .ThenInclude(x => x.Contractor)
                 .ToList();
 
-            var products = query.Select(x =>
+            var products = query.Select(product =>
             {
-                var hasCustomPrice = !string.IsNullOrWhiteSpace(nip) && x.ContractorProductPrices.Any(
+                var hasCustomPrice = !string.IsNullOrWhiteSpace(nip) && product.ContractorProductPrices.Any(
                     contractorProductPrice =>
-                        contractorProductPrice.Contractor.ID.ToString().PadLeft(9, '0')
-                        == nip.PadLeft(9, '0'));
+                        contractorProductPrice.Contractor.ID.ToString().PadLeft(9, '0') == nip);
 
-                var price = (hasCustomPrice
-                    ? x.ContractorProductPrices.First().Price
-                    : x.Price) * (decimal) (1 + RateVAT / 100.0);
+                decimal netto;
+                if (hasCustomPrice)
+                {
+                    netto = product.ContractorProductPrices.First().Price;
+                }
+                else
+                {
+                    netto = product.Price;
+                }
+                var brutto = netto * (decimal)(1 + RateVAT / 100.0);
 
                 return new
                 {
-                    x.ID,
-                    x.Name,
-                    Price = price,
+                    product.ID,
+                    product.Name,
+                    PriceBrutto = brutto,
+                    PriceNetto = netto,
                     UnitOfMeasure = "$",
                     RateVAT
                 };
